@@ -40,7 +40,7 @@ function yy = getMultiRelayCDF(xx, raceN, aMU, vMU, aLAMBDA, vLAMBDA)
     buffer = 200;
     xMin   = max(0, min(xx) - buffer);
     xMax   =      max(xx) + buffer;
-    denseX = linspace(xMin, xMax, 10000);
+    denseX = linspace(xMin, xMax, 1000);
     nDense = numel(denseX);
 
     % Initial-stage CDF

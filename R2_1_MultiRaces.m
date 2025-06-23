@@ -49,6 +49,10 @@ ax1 = nexttile(t, [1 2]); hold(ax1,'on');
 plot(xx, uniCDF(xx,aMU,aLAMBDA), 'Color','#009FE3','LineWidth',1.5);
 plot(xx, uniCDF(xx,vMU,vLAMBDA), 'Color','#3AAA35','LineWidth',1.5);
 
+% Define a colormap using cbrewer2
+races = 1:raceN;
+colors = cbrewer2('Reds', length(races));
+
 % Generate colormap for relay stages (from light grey to black)
 lightGrey = [0.8 0.8 0.8];
 black    = [0    0    0];
@@ -72,14 +76,31 @@ scatter(empData(:,3), probLevels, 30, 'MarkerEdgeColor','k','MarkerFaceColor','w
 xlabel(ax1,'Response Time (ms)'); ylabel(ax1,'Cumulative Probability');
 axis(ax1,[100 xMax 0 1]); set(ax1,'Box','off','TickDir','out','FontSize',9,'LineWidth',1.5);
 
-%% Compute RSE and Violations Across Stages
+%% Compute RSE, Violations, and RMSE Across Stages
+% Prepare empirical CDF at data points
+dataRT      = empData(:,3);            % AV quantile RTs
+empiricalF  = probLevels(:);           % CDF levels at those RTs
+
+rseVals     = nan(1,raceN);
+violVals    = nan(1,raceN);
+rmseVals    = nan(1,raceN);
+
 griceCDF    = getGriceCDF(uniCDF(xx,aMU,aLAMBDA), uniCDF(xx,vMU,vLAMBDA));
 millerCDF   = getMillerCDF(xx, aMU, vMU, aLAMBDA, vLAMBDA);
-rseVals      = nan(1,raceN);
-violVals    = nan(1,raceN);
+
 for k = 1:raceN
-    rseVals(k)   = getRSE_fromCDF(xx, multiCDF(:,k), griceCDF);
-    violVals(k)  = getViolation_fromCDF(xx, multiCDF(:,k), millerCDF);
+    % Predicted full-grid CDF
+    predCDF = multiCDF(:,k);
+    % Interpolate predicted CDF at empirical RTs
+    predAtEmp = interp1(xx, predCDF, dataRT, 'linear', 'extrap');
+
+    % Redundancy gain (RSE) against race (Grice) model
+    rseVals(k)   = getRSE_fromCDF(xx, predCDF, griceCDF);
+    % Violations against Miller bound
+    violVals(k)  = getViolation_fromCDF(xx, predCDF, millerCDF);
+    % RMSE between empirical and predicted at data points
+    diff = empiricalF - predAtEmp;
+    rmseVals(k)  = sqrt(mean(diff.^2));
 end
 
 %% Plot RSE vs. Number of Stages
