@@ -1,0 +1,14 @@
+function [yy,xx1] = millerCDF(xx, aMU, vMU, aLAMBDA, vLAMBDA)
+
+F1 = uniCDF(xx, aMU, aLAMBDA);
+F2 = uniCDF(xx, vMU, vLAMBDA);
+
+% yy = F1 + F2;
+
+% Compute Miller bound
+p = getCP( length(xx) );
+yy = interp1( xx, F1+F2, p );
+
+% yy(yy>1) = nan;
+
+end
