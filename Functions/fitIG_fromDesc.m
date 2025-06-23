@@ -1,4 +1,4 @@
-function [mu, lambda, rmse] = fitIGfromDesc(target_mean, target_se, target_median, n)
+function [mu, lambda, rmse] = fitIG_fromDesc(target_mean, target_se, target_median, n)
     % Fit an Inverse Gaussian so as to minimise the RMSE between
     % (mean, SD, median) and their targets.
     %

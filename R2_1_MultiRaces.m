@@ -1,194 +1,103 @@
-%% Figure 2: Increasing Number of Stages
+%% Figure 3: Impact of Number of Relay Stages on CDF, RSE, and Violations
+% This script examines how increasing the number of relay (race) stages
+% affects the predicted CDFs, redundancy gain (RSE), and Miller-bound violations.
 
-clear
-clc
-close all
+clear; clc; close all;
 
-addpath(genpath(fullfile('Functions')));
+% Add custom functions to path
+addpath(genpath(fullfile(pwd, 'Functions')));
 
-%% Set Parameters
+%% Load Previously Fitted Parameters
+% Parameters stored as cell array: {A_dist, V_dist, weightStruct}
+paramFile = fullfile(pwd, 'FittedParameters', 'Miller82_Parameters.mat');
+load(paramFile, 'params');
+A = params{1};  V = params{2};  W = params{3};
 
-load(fullfile(cd, "FittedParameters", "Miller82_Parameters.mat"))
+% Extract Inverse-Gaussian parameters
+aMU     = A.mu;    vMU     = V.mu;
+aLAMBDA = A.lambda; vLAMBDA = V.lambda;
 
-A = params{1,1};
-V = params{1,2};
-W = params{1,3};
+%% Define Response-Time Grid and Race Range
+xMin   = 0;  xMax   = 700;  nX = 1000;
+xx      = linspace(xMin, xMax, nX);
+raceMax = 10;  % maximum number of stages to test
+raceN   = raceMax;
 
-aMU = A.mu;
-vMU = V.mu;
-aLAMBDA = A.lambda;
-vLAMBDA = V.lambda;
+%% Load Empirical Quantile Data
+empDir = fullfile(pwd, 'EmpiricalData', 'Miller82');
+numQuantiles = 10;
+empData      = nan(numQuantiles, 3);
+for cond = 1:3
+    file = fullfile(empDir, sprintf('%d.csv', cond));
+    tmp  = readmatrix(file);
+    empData(:,cond) = tmp(:,1);
+end
+probLevels = linspace(0.05, 0.95, numQuantiles);
 
-xMin = 0;
-xMax = 700;
-xN = 1000;
-
-xx = linspace(xMin, xMax, xN);
-
-raceMax = 10;
-raceN = raceMax;
-
-%% LOAD DATA TO WORKSPACE
-
-loadPath = fullfile(cd, "EmpiricalData", "Miller82");
-
-data = nan(10, 3);
-params = nan(3,2);
-
-for i = 1:3
-    temp_data = readmatrix(fullfile(loadPath, [int2str(i), '.csv']));
-    data(:,i) = temp_data(:,1);
+%% Compute Relay CDFs for 1..raceMax Stages
+multiCDF = nan(nX, raceN);
+parfor k = 1:raceN
+    multiCDF(:,k) = getMultiRelayCDF(xx, k, aMU, vMU, aLAMBDA, vLAMBDA);
 end
 
-%% Get CDFs
+%% Set up Figure with Tiled Layout
+f1 = figure('Units','centimeters','OuterPosition',[0 0 16 5.5]);
+t = tiledlayout(1,4,'TileSpacing','compact','Padding','compact');
+ax1 = nexttile(t, [1 2]); hold(ax1,'on');
 
-multi = nan(xN, raceN);
+% Plot unisensory CDFs
+plot(xx, uniCDF(xx,aMU,aLAMBDA), 'Color','#009FE3','LineWidth',1.5);
+plot(xx, uniCDF(xx,vMU,vLAMBDA), 'Color','#3AAA35','LineWidth',1.5);
 
-races = linspace(1,raceMax,raceN);
+% Generate colormap for relay stages (from light grey to black)
+lightGrey = [0.8 0.8 0.8];
+black    = [0    0    0];
+stageColors = [linspace(lightGrey(1),black(1),raceN)', ...
+               linspace(lightGrey(2),black(2),raceN)', ...
+               linspace(lightGrey(3),black(3),raceN)'];
 
-parfor i = 1:raceN
-    race = races(i);
-    multi(:,i) = multipleRacesCDF(xx, race, aMU, vMU, aLAMBDA, vLAMBDA);
-    disp(i)
+% Plot each multi-stage CDF
+for k = 1:raceN
+    plot(xx, multiCDF(:,k), 'Color', stageColors(k,:), 'LineWidth',1.5);
 end
 
-%% Plot CDFs
+plot(xx, getRaabCDF(xx,aMU,vMU,aLAMBDA,vLAMBDA), 'Color','r','LineWidth',1.5, 'LineStyle','--');
+plot(xx, getMillerCDF(xx,aMU,vMU,aLAMBDA,vLAMBDA), 'Color','r','LineWidth',1.5, 'LineStyle','-');
 
-f1 = figure;
-t = tiledlayout(1, 4, 'TileSpacing', 'none', 'Padding', 'none', 'Units', 'centimeters', 'OuterPosition', [0 0 16 5.5]);
-ax1 = nexttile(t, [1, 2]);
+% Overlay empirical quantiles
+scatter(empData(:,1), probLevels, 30, 'MarkerEdgeColor','#009FE3','MarkerFaceColor','w');
+scatter(empData(:,2), probLevels, 30, 'MarkerEdgeColor','#3AAA35','MarkerFaceColor','w');
+scatter(empData(:,3), probLevels, 30, 'MarkerEdgeColor','k','MarkerFaceColor','w');
 
-my_linewidth = 1.5;
-my_fontsize = 9;
+xlabel(ax1,'Response Time (ms)'); ylabel(ax1,'Cumulative Probability');
+axis(ax1,[100 xMax 0 1]); set(ax1,'Box','off','TickDir','out','FontSize',9,'LineWidth',1.5);
 
-hold on;
-
-my_linewidth = 1.5;
-my_fontsize = 9;
-
-aud_col = '#009FE3';
-vis_col = '#3AAA35';
-
-uniA = uniCDF(xx, aMU, aLAMBDA);
-uniV = uniCDF(xx, vMU, vLAMBDA);
-
-plot(xx, uniA, 'Color', aud_col, 'LineWidth', my_linewidth)
-plot(xx, uniV, 'Color', vis_col, 'LineWidth', my_linewidth)
-
-races = 1:raceN;
-
-% Define a colormap using cbrewer2
-colors = cbrewer2('Reds', length(races));
-
-% Normalize weights to be within the range of the colormap
-norm_weights = (races - min(races)) / (max(races) - min(races));
-color_indices = round(norm_weights * (size(colors, 1) - 1)) + 1;
-
-colorMapLength = raceN;
-red = [0.8 0.8 0.8];
-pink = [0 0 0];
-colors_p = [linspace(red(1),pink(1),colorMapLength)', linspace(red(2),pink(2),colorMapLength)', linspace(red(3),pink(3),colorMapLength)'];
-
-% Plot each CDF with the corresponding color
-for i = 1:raceN
-    plot(xx, multi(:,i), 'Color', colors_p(color_indices(i), :), 'LineWidth', my_linewidth);
+%% Compute RSE and Violations Across Stages
+griceCDF    = getGriceCDF(uniCDF(xx,aMU,aLAMBDA), uniCDF(xx,vMU,vLAMBDA));
+millerCDF   = getMillerCDF(xx, aMU, vMU, aLAMBDA, vLAMBDA);
+rseVals      = nan(1,raceN);
+violVals    = nan(1,raceN);
+for k = 1:raceN
+    rseVals(k)   = getRSE_fromCDF(xx, multiCDF(:,k), griceCDF);
+    violVals(k)  = getViolation_fromCDF(xx, multiCDF(:,k), millerCDF);
 end
 
-n = 100000;
-miller = getMiller([uniRND(n, aMU, aLAMBDA) uniRND(n, vMU, vLAMBDA)]);
-raab = getRaab([uniRND(n, aMU, aLAMBDA) uniRND(n, vMU, vLAMBDA)]);
-plot(miller, getCP(n), 'r', 'LineWidth', 2, 'LineStyle', '-')
-plot(raab, getCP(n), 'r', 'LineWidth', 2, 'LineStyle', '--')
+%% Plot RSE vs. Number of Stages
+ax2 = nexttile(t); hold(ax2,'on');
+plot(1:raceN, rseVals, 'o-','Color','k','LineWidth',1.5,'MarkerFaceColor','w');
+yline(rseVals(1),'r--','LineWidth',1.5);
+xlabel(ax2,'Stages'); ylabel(ax2,'RSE (ms)');
+set(ax2,'Box','off','TickDir','out','FontSize',9,'LineWidth',1.5);
+xlim([1 raceMax]); ylim([0 max(rseVals)*1.1]);
 
-dataCDFvals = linspace(0.05, 0.95, 10);
+%% Plot Violations vs. Number of Stages
+ax3 = nexttile(t); hold(ax3,'on');
+plot(1:raceN, violVals, 'o-','Color','k','LineWidth',1.5,'MarkerFaceColor','w');
+yline(violVals(1),'r--','LineWidth',1.5);
+xlabel(ax3,'Stages'); ylabel(ax3,'Violations (ms)');
+set(ax3,'Box','off','TickDir','out','FontSize',9,'LineWidth',1.5);
+xlim([1 raceMax]); ylim([0 max(violVals)*1.1]);
 
-scatter(data(:,1), dataCDFvals, 15, 'MarkerEdgeColor', aud_col, 'MarkerFaceColor', 'w', 'LineWidth', 1.5)
-scatter(data(:,2), dataCDFvals, 15, 'MarkerEdgeColor', vis_col, 'MarkerFaceColor', 'w', 'LineWidth', 1.5)
-scatter(data(:,3), dataCDFvals, 15, 'MarkerEdgeColor', 'k', 'MarkerFaceColor', 'w', 'LineWidth', 1.5)
-
-% Create a custom colorbar
-colormap(colors_p); % Use the defined colors
-c = colorbar('eastoutside', 'Visible', 'on');
-clim([min(races) max(races)]);
-ylabel(c, "Race Number")
-
-% Add labels and title
-xlabel('Response Time (ms)');
-ylabel('Cumulative Probability');
-hold off;
-set(gca,'TickDir','out');
-set(gca, 'XColor', 'k');
-set(gca, 'YColor', 'k');
-xlim([100 xMax])
-ylim([0 1])
-set(gca, 'linewidth', my_linewidth)
-set(gca, 'FontSize', my_fontsize)
-yticks(linspace(0, 1, 3))
-xticks(linspace(100, 700, 3))
-
-% Get percent increase in RSE with increasing race number
-
-millerCDFvals = millerCDF(xx, aMU, vMU, aLAMBDA, vLAMBDA)';
-raabCDFvals = raabCDF(xx, aMU, vMU, aLAMBDA, vLAMBDA)';
-griceCDF = getGriceCDF(uniA, uniV)';
-
-for i = 1:raceN
-    rse(i) = getGainFromCDF(xx, multi(:,i), griceCDF);
-    violation(i) = getViolationFromCDF(xx, multi(:,i), millerCDFvals);
-end
-
-diffRSE = diff(rse);
-
-pct_increase = percentageIncrease(rse)
-
-% PLOTS
-
-% Create the plot
-ax2 = nexttile(t);
-hold on
-plot(1, rse(1), 'LineWidth', my_linewidth, 'Marker', 'o', 'MarkerFaceColor', 'w', 'Color', 'r', 'MarkerSize', 4)
-plot(2:raceN, rse(2:end), 'LineWidth', my_linewidth, 'Marker', 'o', 'MarkerFaceColor', 'w', 'Color', 'k', 'MarkerSize', 4)
-ylabel('RSE (ms)')
-xlabel('Races (#)')
-set(gca, 'TickDir', 'out');
-set(gca, 'linewidth', my_linewidth)
-set(gca, 'FontSize', my_fontsize)
-set(gca, 'XColor', 'k');
-set(gca, 'YColor', 'k');
-box off
-xlim([0 raceMax])
-xticks(linspace(0, raceMax, raceN/2))
-ylim([0 200])
-yline(rse(1), 'LineStyle', '--', 'Color', 'r', 'LineWidth', my_linewidth)
-
-ax3 = nexttile(t);
-hold on
-plot(1, violation(1), 'LineWidth', my_linewidth, 'Marker', 'o', 'MarkerFaceColor', 'w', 'Color', 'r', 'MarkerSize', 4)
-plot(2:raceN, violation(2:end), 'LineWidth', my_linewidth, 'Marker', 'o', 'MarkerFaceColor', 'w', 'Color', 'k', 'MarkerSize', 4)
-ylabel("Violation (ms)")
-xlabel("Races (#)")
-set( gca, 'TickDir', 'out' );
-set( gca, 'linewidth', my_linewidth)
-set( gca, "FontSize", my_fontsize)
-set(gca, 'XColor', 'k');
-set(gca, 'YColor', 'k');
-ylim([0 100])
-xlim([0 raceMax])
-xticks(linspace(0, raceMax, 5))
-yline(violation(1), 'LineStyle', '--', 'Color', 'r', 'LineWidth', my_linewidth)
-box off
-
-%% Save Figure
-exportgraphics(f1, fullfile(cd, "Figures", "figure3.pdf"), "ContentType", "vector")
-
-%% FUNCTIONS
-
-function pct_increase = percentageIncrease(vec)
-    % Validate that the input vector has more than one element
-    if length(vec) < 2
-        error('Input vector must have at least two elements.');
-    end
-    
-    % Calculate the percentage increase
-    pct_increase = ((vec(2:end) - vec(1:end-1)) ./ vec(1:end-1)) * 100;
-end
+%% Save Figure as Vector PDF
+outDir = fullfile(pwd,'Figures'); if ~exist(outDir,'dir'), mkdir(outDir); end
+exportgraphics(f1, fullfile(outDir,'figure3.pdf'),'ContentType','vector');

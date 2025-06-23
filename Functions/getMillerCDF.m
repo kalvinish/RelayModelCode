@@ -1,4 +1,4 @@
-function yy = millerCDF(xx, aMU, vMU, aLAMBDA, vLAMBDA)
+function yy = getMillerCDF(xx, aMU, vMU, aLAMBDA, vLAMBDA)
 
 F1 = uniCDF(xx, aMU, aLAMBDA);
 F2 = uniCDF(xx, vMU, vLAMBDA);
