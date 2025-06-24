@@ -49,10 +49,6 @@ ax1 = nexttile(t, [1 2]); hold(ax1,'on');
 plot(xx, uniCDF(xx,aMU,aLAMBDA), 'Color','#009FE3','LineWidth',1.5);
 plot(xx, uniCDF(xx,vMU,vLAMBDA), 'Color','#3AAA35','LineWidth',1.5);
 
-% Define a colormap using cbrewer2
-races = 1:raceN;
-colors = cbrewer2('Reds', length(races));
-
 % Generate colormap for relay stages (from light grey to black)
 lightGrey = [0.8 0.8 0.8];
 black    = [0    0    0];
@@ -65,6 +61,7 @@ for k = 1:raceN
     plot(xx, multiCDF(:,k), 'Color', stageColors(k,:), 'LineWidth',1.5);
 end
 
+% Plot Race and Miller Bound
 plot(xx, getRaabCDF(xx,aMU,vMU,aLAMBDA,vLAMBDA), 'Color','r','LineWidth',1.5, 'LineStyle','--');
 plot(xx, getMillerCDF(xx,aMU,vMU,aLAMBDA,vLAMBDA), 'Color','r','LineWidth',1.5, 'LineStyle','-');
 

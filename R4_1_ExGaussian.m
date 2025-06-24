@@ -152,6 +152,9 @@ plot(taus, violations)
 ylabel('Violation (s)')
 xlabel('Tau')
 
+%% SAVE FIGURE
+exportgraphics(gcf, fullfile(pwd, 'Figures', 'ExGaussExample.pdf'), 'ContentType','vector');
+
 %% Functions
 
 % Race between two exponential distributions (CDF)

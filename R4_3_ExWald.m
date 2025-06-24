@@ -113,33 +113,10 @@ legend('Box','off', 'Location','southeast')
 ylabel('CDF')
 xlabel('RT (s)')
 
-%% Functions
+%% SAVE FIGURE
+exportgraphics(gcf, fullfile(pwd, 'Figures', 'ExWaldExample.pdf'), 'ContentType','vector');
 
-% function cdf = exwald_cdf(xx, mu, lambda, t)
-% %EXWALD_CDF  CDF of the ex-Wald distribution
-% %   CDF = EXWALD_CDF(XX, MU, LAMBDA, T) returns the CDF of Z = W + X
-% %   with W ~ IG(mu,lambda) and X ~ Exp(1/t), evaluated at the vector XX.
-% 
-%     % preallocate
-%     cdf = zeros(size(xx));
-% 
-%     % build one IG dist object
-%     pd = makedist('InverseGaussian','mu',mu,'lambda',lambda);
-% 
-%     % integrand = f_W(u)*exp(u/t)
-%     integrand = @(u) pd.pdf(u) .* exp(u./t);
-% 
-%     % loop (or parfor) over xx
-%     parfor i = 1:numel(xx)
-%         x = xx(i);
-%         if x <= 0
-%             cdf(i) = 0;
-%         else
-%             I = integral(integrand, 0, x);
-%             cdf(i) = pd.cdf(x) - exp(-x/t)*I;
-%         end
-%     end
-% end
+%% Functions
 
 function cdf = exwald_cdf(xx, mu, lambda, t, N)
 %EXWALD_CDF_FAST  Fast CDF of the ex-Wald via a single cumtrapz

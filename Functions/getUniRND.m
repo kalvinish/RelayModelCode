@@ -1,4 +1,4 @@
-function yy = uniRND(n, MU, LAMBDA, sortFlag)
+function yy = getUniRND(n, MU, LAMBDA, sortFlag)
     % uniRND generates n random numbers from the Inverse Gaussian distribution
     % with parameters MU and LAMBDA.
     % If sortFlag is provided and set to 1, the output is sorted in ascending order.

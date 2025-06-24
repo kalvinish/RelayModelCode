@@ -103,8 +103,9 @@ parfor i = 1:length(wVals)
     millerYY_i = gauss_miller_cdf(xx, muL, sigmaL);
     griceYY_i  = getGriceCDF(aYY_i, vYY_i);
 
-    violations(i) = getViolationFromCDF(xx, relayYY_i, millerYY_i);
-    gains(i)      = getGainFromCDF(xx, relayYY_i, griceYY_i);
+    violations(i) = getViolation_fromCDF(xx, relayYY_i, millerYY_i);
+    gains(i)      = getRSE_fromCDF(xx, relayYY_i, griceYY_i);
+    disp(i)
 end
 
 nexttile;
@@ -117,6 +118,8 @@ plot(wVals, violations,'-o')
 xlabel('Weight w'); ylabel('Violation');
 title('Violation vs. split weight')
 
+%% SAVE FIGURE
+exportgraphics(gcf, fullfile(pwd, 'Figures', 'GaussExample.pdf'), 'ContentType','vector');
 
 %% FUNCTIONS
 function [mu, sigma] = split_params(mu_total, sigma_total, w)

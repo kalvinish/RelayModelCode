@@ -1,5 +1,5 @@
-function rt = multiRND(n, aMU, vMU, aLAMBDA, vLAMBDA, aW1, aW2, vW1, vW2, sortFlag)
-    % multiRND generates reaction times based on auditory and visual parameters.
+function rt = getRelayRND(n, aMU, vMU, aLAMBDA, vLAMBDA, aW1, aW2, vW1, vW2, sortFlag)
+    % getRelayRND generates reaction times based on auditory and visual parameters.
     % If sortFlag is provided and set to 1, the output rt is sorted in ascending order.
     % By default, sortFlag is 0, and the output rt is unsorted.
     
