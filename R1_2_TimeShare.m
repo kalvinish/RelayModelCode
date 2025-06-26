@@ -26,7 +26,7 @@ optW    = W.optimal_w;
 %% Set up Grid for Weight Variation and RT Range
 numWeights = 100;                  % Number of weight steps
 weights    = linspace(0, 0.5, numWeights);
-xx         = linspace(100, 800, 500);  % RT values for CDF evaluation
+xx         = linspace(100, 700, 100);  % RT values for CDF evaluation
 
 % Preallocate for speed
 modelCDFs = nan(length(xx), numWeights);
@@ -34,15 +34,9 @@ gains     = nan(1, numWeights);
 violationsTrue = nan(1, numWeights);
 
 %% Load Empirical Quantiles for Plotting
-numQuantiles = 10;
-empiricalDir = fullfile(pwd, 'EmpiricalData', 'Miller82');
-empData = nan(numQuantiles, 3);
-for cond = 1:3
-    csvFile = fullfile(empiricalDir, sprintf('%d.csv', cond));
-    raw = readmatrix(csvFile);
-    empData(:, cond) = raw(:,1);
-end
-probLevels = linspace(0.05, 0.95, numQuantiles);
+loadedData = readmatrix(fullfile(pwd, 'EmpiricalData', 'Miller82', 'miller.xlsx'));
+empData = loadedData(:,1:3);
+probLevels = loadedData(:,4);
 
 %% Compute Relay Model CDFs Across Weight Range
 % Parallel loop speeds up independent CDF evaluations
@@ -56,11 +50,14 @@ figure;
 t = tiledlayout(1, 4, 'TileSpacing','compact', 'Padding','compact');
 ax1 = nexttile(t, [1 2]); hold(ax1,'on');
 
+linewidth = 2.5;
+fontsize = 14;
+
 % Unisensory CDFs
-uniA = uniCDF(xx, aMU, aLAMBDA);
-uniV = uniCDF(xx, vMU, vLAMBDA);
-plot(xx, uniA, 'Color','#009FE3', 'LineWidth',1.5);
-plot(xx, uniV, 'Color','#3AAA35', 'LineWidth',1.5);
+uniA = getUniCDF(xx, aMU, aLAMBDA);
+uniV = getUniCDF(xx, vMU, vLAMBDA);
+plot(xx, uniA, 'Color','#3AAA35', 'LineWidth',linewidth);
+plot(xx, uniV, 'Color','#009FE3', 'LineWidth',linewidth);
 
 % Relay model curves colored by weight
 grey = [228 210 231]/255; black = [137 41 133]/255;
@@ -72,21 +69,28 @@ for idx = 1:numWeights
 end
 
 % Reference bounds: Miller and Raab
-mxx = linspace(100,800,500);
-plot(ax1, mxx, getMillerCDF(mxx, aMU,vMU,aLAMBDA,vLAMBDA), 'r-', 'LineWidth',1.5);
-plot(ax1, xx, getRaabCDF(xx, aMU,vMU,aLAMBDA,vLAMBDA), 'r--', 'LineWidth',1.5);
+plot(ax1, xx, getMillerCDF(xx, aMU,vMU,aLAMBDA,vLAMBDA), 'r-', 'LineWidth',linewidth);
+plot(ax1, xx, getRaabCDF(xx, aMU,vMU,aLAMBDA,vLAMBDA), 'r--', 'LineWidth',linewidth);
 
 % Optimal-weight relay curve
-plot(ax1, xx, getRelayCDF(xx,aMU,vMU,aLAMBDA,vLAMBDA,optW,1-optW,optW,1-optW), 'k-', 'LineWidth',1.5);
+plot(ax1, xx, getRelayCDF(xx,aMU,vMU,aLAMBDA,vLAMBDA,optW,1-optW,optW,1-optW), 'k-', 'LineWidth',linewidth);
 
 % Overlay empirical quantiles
-scatter(ax1, empData(:,1), probLevels, 30, 'MarkerEdgeColor','#009FE3', 'MarkerFaceColor','w');
-scatter(ax1, empData(:,2), probLevels, 30, 'MarkerEdgeColor','#3AAA35', 'MarkerFaceColor','w');
-scatter(ax1, empData(:,3), probLevels, 30, 'MarkerEdgeColor','k',        'MarkerFaceColor','w');
+scatter(ax1, empData(:,1), probLevels, 50, 'MarkerEdgeColor','#3AAA35', 'MarkerFaceColor','w', 'LineWidth', linewidth);
+scatter(ax1, empData(:,2), probLevels, 50, 'MarkerEdgeColor','#009FE3', 'MarkerFaceColor','w', 'LineWidth', linewidth);
+scatter(ax1, empData(:,3), probLevels, 50, 'MarkerEdgeColor','k',        'MarkerFaceColor','w', 'LineWidth', linewidth);
 
 xlabel('Response Time (ms)'); ylabel('Cumulative Probability');
 axis([100 700 0 1]); box off;
-ax1.TickDir = 'out'; ax1.FontSize = 9;
+ax1.TickDir = 'out'; ax1.FontSize = fontsize;
+
+% Set axis ticks and other properties
+yticks(linspace(0, 1, 3))
+xticks(linspace(100, 700, 3))
+
+ax1.YColor = "k";
+ax1.XColor = "k";
+ax1.LineWidth = linewidth;
 
 %% Compute RSE and Violations Across Weights
 parfor idx = 1:numWeights
@@ -105,20 +109,32 @@ end
 %% Plot RSE and Violation as Function of Weight
 % RSE subplot
 ax2 = nexttile(t); hold(ax2,'on');
-plot(weights*100, gains, 'k-', 'LineWidth',1.5);
+plot(weights*100, gains, 'k-', 'LineWidth',linewidth);
 ylabel('RSE (ms)');
-xlabel('First-stage Weight (%)');
-plot([0 weights(end)*100], [getRSE_fromCDF(xx,getRaabCDF(xx,aMU,vMU,aLAMBDA,vLAMBDA), getGriceCDF(uniA,uniV))]*[1 1], 'r--','LineWidth',1.5);
-axis([0 50 0 80]); box off; ax2.TickDir='out'; ax2.FontSize=9;
+xlabel('RT Share (%)');
+plot([0 weights(end)*100], [getRSE_fromCDF(xx,getRaabCDF(xx,aMU,vMU,aLAMBDA,vLAMBDA), getGriceCDF(uniA,uniV))]*[1 1], 'r--','LineWidth',linewidth);
+axis([0 50 0 80]); box off; ax2.TickDir='out'; ax2.FontSize=fontsize;
+yticks(linspace(0, 80, 5))
+xticks(linspace(0, 50, 6))
+ax2.YColor = "k";
+ax2.XColor = "k";
+ax2.LineWidth = linewidth;
+
 
 % Violation subplot
 ax3 = nexttile(t); hold(ax3,'on');
-plot(weights*100, violationsTrue, 'k-', 'LineWidth',1.5);
-ylabel('Violations (ms)'); xlabel('First-stage Weight (%)');
-plot([0 50],[0 0],'r--','LineWidth',1.5);
-axis([0 50 0 max(violationsTrue)*1.1]); box off; ax3.TickDir='out'; ax3.FontSize=9;
+plot(weights*100, violationsTrue, 'k-', 'LineWidth',linewidth);
+ylabel('Violations (ms)'); xlabel('RT Share (%)');
+plot([0 50],[0 0],'r--','LineWidth',linewidth);
+axis([0 50 0 10]); box off; ax3.TickDir='out'; ax3.FontSize=fontsize;
+yticks(linspace(0, 10, 6))
+xticks(linspace(0, 50, 6))
+ax3.YColor = "k";
+ax3.XColor = "k";
+ax3.LineWidth = linewidth;
 
-% Save figure
+
+%% Save figure
 outFile = fullfile(pwd, 'Figures', 'figure2.pdf');
 exportgraphics(gcf, outFile, 'ContentType', 'vector');
 

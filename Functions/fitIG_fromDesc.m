@@ -1,11 +1,10 @@
-function [mu, lambda, rmse] = fitIG_fromDesc(target_mean, target_se, target_median, n)
+function [mu, lambda, rmse] = fitIG_fromDesc(target_mean, target_se, n)
     % Fit an Inverse Gaussian so as to minimise the RMSE between
     % (mean, SD, median) and their targets.
     %
     % Inputs:
     %   target_mean   – desired mean
     %   target_se     – desired standard error
-    %   target_median – desired median
     %   n             – sample size used to compute SE
     %
     % Outputs:
@@ -21,7 +20,7 @@ function [mu, lambda, rmse] = fitIG_fromDesc(target_mean, target_se, target_medi
     x0      = [mu0, lambda0];
 
     % Objective: RMSE of the three summary stats
-    objfun = @(params) sqrt( mean( residuals(params, target_mean, target_sd, target_median).^2 ) );
+    objfun = @(params) sqrt( mean( residuals(params, target_mean, target_sd).^2 ) );
 
     % Constrain mu>0, lambda>0
     lb = [eps, eps];
@@ -41,7 +40,7 @@ function [mu, lambda, rmse] = fitIG_fromDesc(target_mean, target_se, target_medi
     rmse   = objfun(params_opt);
 end
 
-function res = residuals(params, tgt_m, tgt_s, tgt_d)
+function res = residuals(params, tgt_m, tgt_s)
     % Compute the three raw errors
     mu     = params(1);
     lambda = params(2);
@@ -58,25 +57,6 @@ function res = residuals(params, tgt_m, tgt_s, tgt_d)
     % 2) SD error from var = mu^3/lambda
     err_sd = sqrt(mu^3/lambda) - tgt_s;
 
-    % 3) median error
-    med = ig_median(mu, lambda);
-    err_med = med - tgt_d;
-
-    res = [err_mean; err_sd; err_med];
+    % res = [err_mean; err_sd; err_med];
+    res = [err_mean; err_sd];
 end
-
-
-function med = ig_median(mu, lambda)
-    % ig_median: Calculate the median of the inverse Gaussian distribution
-    %
-    % Inputs:
-    % - mu: The mean of the distribution
-    % - lambda: The shape parameter of the distribution
-    %
-    % Output:
-    % - med: The median of the distribution
-
-    % Compute the median (p = 0.5)
-    med = icdf('InverseGaussian', 0.5, mu, lambda);
-end
-

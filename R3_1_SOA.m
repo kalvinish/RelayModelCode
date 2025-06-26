@@ -12,9 +12,12 @@ addpath(fullfile(pwd, 'Functions'));  % Add custom functions to path
 
 %% 1. FIT INVERSE GAUSSIAN PARAMETERS
 % Fit auditory (A) and visual (V) RT distributions using descriptive stats
-% Inputs: mean (ms), variance (ms^2), median (ms), number of samples
-[muA, lambdaA] = fitIG_fromDesc(231, 2.8, 219, 400);  % Auditory params
-[muV, lambdaV] = fitIG_fromDesc(348, 4.6, 326, 400);  % Visual params
+% Inputs: mean (ms), median, SE, number of samples
+[muA, lambdaA] = fitIG_fromDesc(231, 219, 2.8, 400);  % Auditory params
+[muV, lambdaV] = fitIG_fromDesc(348, 326, 4.6, 400);  % Visual params
+
+mean_rtA = 231;
+mean_rtV = 348;
 
 % Uncomment below for participant KY data
 % [muA, lambdaA, res1] = fitIGfromDesc(0.211, 0.003, 0.193, 400);
@@ -35,7 +38,7 @@ empiricalRSE    = [-3, 1, 4, 3, 10, 14, 26, 35, 54, 50, 32];
 % millerRSE = [-5 -6 -3 -7 -4 3 7 29 26 9 4];
 
 % Finer SOA grid for simulation (ms)
-simLags   = linspace(-167, 167, 100);
+simLags   = linspace(-167, 167, 200);
 nEmpLags  = numel(empiricalLags);
 nSimLags  = numel(simLags);
 
@@ -51,8 +54,9 @@ wEstimates    = zeros(nRepeats,1);
 fvals         = zeros(nRepeats,1);
 
 parfor rep = 1:nRepeats
-    objFun = @(w) computeRMSE(w, nOptimSamples, empiricalLags, muA, muV, lambdaA, lambdaV, empiricalRSE);
+    objFun = @(w) computeRMSE(w, nOptimSamples, empiricalLags, muA, muV, lambdaA, lambdaV, empiricalRSE, mean_rtA, mean_rtV);
     [wEstimates(rep), fvals(rep)] = fminbnd(objFun, 0, 0.5);
+    disp(rep)
 end
 
 % Aggregate results
@@ -77,15 +81,18 @@ rseRace    = nan(nSimLags, repN);
 % Progress indicator
 hWait = waitbar(0, 'Simulating SOA trials...');
 for rep = 1:repN
-    parfor iLag = 1:nSimLags
+    for iLag = 1:nSimLags
         lag = simLags(iLag);
         % Determine modality-specific delays (ms)
         lagA = max(0,  lag);
         lagV = max(0, -lag);
         
         % Generate unisensory RTs with delay
-        rtA = getUniRND(nTrials, muA, lambdaA, 1) + lagA;
-        rtV = getUniRND(nTrials, muV, lambdaV, 1) + lagV;
+        % rtA = getUniRND(nTrials, muA, lambdaA, 1) + lagA;
+        % rtV = getUniRND(nTrials, muV, lambdaV, 1) + lagV;
+
+        rtA = mean_rtA + lagA;
+        rtV = mean_rtV + lagV;
         
         % Relay model RTs (weighted integration)
         rtRelay = getRelayLagRND(nTrials, muA, muV, lambdaA, lambdaV, w1(1), w1(2), w2(1), w2(2), lag, 1);
@@ -121,21 +128,24 @@ meanRace_all  = mean(meanRace, 2);
 rseRelay_all  = mean(rseRelay, 2);
 rseRace_all   = mean(rseRace, 2);
 
+%%
+test_rse = min(meanA_all, meanV_all) - meanRelay_all
+
 %% 6. PLOT RESULTS
 figure();
 t = tiledlayout(1,2,'TileSpacing','compact','Padding','compact');
 
-aud_col = '#009FE3';
-vis_col = '#3AAA35';
+aud_col = '#3AAA35';
+vis_col = '#009FE3';
 relay_col = '#706F6F';
 
 lagsA = zeros(length(simLags), 1);
 lagsA(simLags > 0) = simLags(simLags > 0);
-aData = (muA + lagsA);
+aData = (mean_rtA + lagsA);
 
 lagsV = zeros(length(simLags), 1);
 lagsV(simLags < 0) = abs(simLags(simLags < 0));
-vData = (muV + lagsV);
+vData = (mean_rtV + lagsV);
 
 % Panel 1: Mean RT vs. SOA
 ax1 = nexttile(t);
@@ -174,16 +184,19 @@ exportgraphics(gcf, fullfile(pwd, 'Figures', 'figure4.pdf'), 'ContentType','vect
 
 %% LOCAL FUNCTIONS
 
-function rmse = computeRMSE(w, nSamples, lags, muA, muV, lamA, lamV, empiricalRSE)
+function rmse = computeRMSE(w, nSamples, lags, muA, muV, lamA, lamV, empiricalRSE, mean_rtA, mean_rtV)
     if numel(w)>1, w1=w; w2=w; else, w1=[w,1-w]; w2=w1; end
-    RSEsim = arrayfun(@(lag) simulateRSE(lag, nSamples, muA, muV, lamA, lamV, w1, w2), lags);
+    RSEsim = arrayfun(@(lag) simulateRSE(lag, nSamples, muA, muV, lamA, lamV, w1, w2, mean_rtA, mean_rtV), lags);
     rmse = sqrt(mean((empiricalRSE - RSEsim).^2));
 end
 
-function rse = simulateRSE(lag, n, muA, muV, lamA, lamV, w1, w2)
+function rse = simulateRSE(lag, n, muA, muV, lamA, lamV, w1, w2, mean_rtA, mean_rtV)
     lagA = max(0, lag); lagV = max(0, -lag);
-    rtA = getUniRND(n, muA, lamA, 1) + lagA;
-    rtV = getUniRND(n, muV, lamV, 1) + lagV;
+    % rtA = getUniRND(n, muA, lamA, 1) + lagA;
+    % rtV = getUniRND(n, muV, lamV, 1) + lagV;
+    rtA = mean_rtA + lagA;
+    rtV = mean_rtV + lagV;
+
     rtRelay = getRelayLagRND(n, muA, muV, lamA, lamV, w1(1),w1(2),w2(1),w2(2),lag,1);
     rse = min(mean(rtA),mean(rtV)) - mean(rtRelay);
 end

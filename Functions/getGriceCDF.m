@@ -1,32 +1,47 @@
-function griceCDF = getGriceCDF(uni1CDF, uni2CDF)
-%GETGRICECDF Compute the Grice cumulative distribution function (CDF)
-%   griceCDF = GETGRICECDF(uni1CDF, uni2CDF) returns the element-wise maximum
-%   of two input cumulative distribution functions uni1CDF and uni2CDF.
-%   This represents the Grice CDF, selecting at each point the higher
-%   cumulative probability between the two distributions.
+function griceCDF = getGriceCDF(xx, aMU, vMU, aLAMBDA, vLAMBDA)
+%GETGRICECDF  Compute the Grice bound CDF from two unisensory CDFs
 %
-% Inputs:
-%   uni1CDF - Numeric vector or array representing the first CDF.
-%   uni2CDF - Numeric vector or array representing the second CDF.
-%             Must be the same size as uni1CDF.
+%   griceCDF = GETGRICECDF(xx, aMU, vMU, aLAMBDA, vLAMBDA) computes the
+%   Grice cumulative distribution function (CDF) for audiovisual reaction
+%   times by taking the element-wise maximum of the auditory and visual
+%   unisensory CDFs at each time point in xx.
 %
-% Output:
-%   griceCDF - Numeric vector or array of the same size as the inputs,
-%              containing the element-wise maximum values of uni1CDF
-%              and uni2CDF.
+%   Inputs:
+%     xx       — Numeric vector of timepoints at which to evaluate the CDFs
+%     aMU      — Mean (μ) parameter for the auditory unisensory distribution
+%     vMU      — Mean (μ) parameter for the visual  unisensory distribution
+%     aLAMBDA  — Rate (λ) parameter for the auditory unisensory distribution
+%     vLAMBDA  — Rate (λ) parameter for the visual  unisensory distribution
 %
-% Example:
-%   cdf1 = [0.1, 0.4, 0.8, 1.0];
-%   cdf2 = [0.2, 0.3, 0.7, 1.0];
-%   gCDF = getGriceCDF(cdf1, cdf2);
-%   % gCDF = [0.2, 0.4, 0.8, 1.0]
+%   Output:
+%     griceCDF — Numeric vector of the same size as xx, containing the
+%                Grice bound CDF, i.e. the element-wise maximum of the
+%                auditory and visual unisensory CDFs.
 %
-% See also MAX, CDF
+%   The function internally calls getUniCDF(xx, mu, lambda) to compute each
+%   unisensory CDF:
+%       uni1CDF = getUniCDF(xx, aMU, aLAMBDA);
+%       uni2CDF = getUniCDF(xx, vMU, vLAMBDA);
+%   and then does:
+%       griceCDF = max(uni1CDF, uni2CDF);
+%
+%   Example:
+%     xx = 0:10:100; 
+%     audCDF = getUniCDF(xx, 200, 0.01);
+%     visCDF = getUniCDF(xx, 250, 0.008);
+%     gCDF = getGriceCDF(xx, 200, 250, 0.01, 0.008);
+%
+%   See also getUniCDF, getRaabCDF
 
-    % Ensure inputs are of the same size
-    assert(isequal(size(uni1CDF), size(uni2CDF)), ...
-        'Inputs uni1CDF and uni2CDF must be the same size.');
+    % Compute each unisensory CDF
+    uniAud = getUniCDF(xx, aMU, aLAMBDA);
+    uniVis = getUniCDF(xx, vMU, vLAMBDA);
 
-    % Compute the Grice CDF by taking the element-wise maximum
-    griceCDF = max(uni1CDF, uni2CDF);
+    % Verify same dimensions
+    assert(isequal(size(uniAud), size(uniVis)), ...
+        'getGriceCDF:SizeMismatch', ...
+        'Auditory and visual CDF outputs must be the same size.');
+
+    % Take element-wise maximum to form the Grice bound
+    griceCDF = max(uniAud, uniVis);
 end

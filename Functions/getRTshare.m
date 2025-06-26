@@ -33,7 +33,7 @@ function [optimal_w, fval] = getRTshare(data, aMU, vMU, aLAMBDA, vLAMBDA)
 
     function dist = compute_distance(w)
         % Compute predicted CDF using multiCDF
-        predicted_F = multiCDF(xx, aMU, vMU, aLAMBDA, vLAMBDA, w, 1 - w, w, 1 - w);
+        predicted_F = getRelayCDF(xx, aMU, vMU, aLAMBDA, vLAMBDA, w, 1 - w, w, 1 - w);
     
         % Compute residuals
         residuals = empirical_F - predicted_F;

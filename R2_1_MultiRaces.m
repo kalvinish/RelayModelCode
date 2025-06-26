@@ -24,15 +24,9 @@ raceMax = 10;  % maximum number of stages to test
 raceN   = raceMax;
 
 %% Load Empirical Quantile Data
-empDir = fullfile(pwd, 'EmpiricalData', 'Miller82');
-numQuantiles = 10;
-empData      = nan(numQuantiles, 3);
-for cond = 1:3
-    file = fullfile(empDir, sprintf('%d.csv', cond));
-    tmp  = readmatrix(file);
-    empData(:,cond) = tmp(:,1);
-end
-probLevels = linspace(0.05, 0.95, numQuantiles);
+loadedData = readmatrix(fullfile(pwd, 'EmpiricalData', 'Miller82', 'miller.xlsx'));
+empData = loadedData(:,1:3);
+probLevels = loadedData(:,4);
 
 %% Compute Relay CDFs for 1..raceMax Stages
 multiCDF = nan(nX, raceN);
@@ -45,9 +39,12 @@ f1 = figure('Units','centimeters','OuterPosition',[0 0 16 5.5]);
 t = tiledlayout(1,4,'TileSpacing','compact','Padding','compact');
 ax1 = nexttile(t, [1 2]); hold(ax1,'on');
 
+linewidth = 2.5;
+fontsize = 14;
+
 % Plot unisensory CDFs
-plot(xx, uniCDF(xx,aMU,aLAMBDA), 'Color','#009FE3','LineWidth',1.5);
-plot(xx, uniCDF(xx,vMU,vLAMBDA), 'Color','#3AAA35','LineWidth',1.5);
+plot(xx, getUniCDF(xx,aMU,aLAMBDA), 'Color','#3AAA35','LineWidth',linewidth);
+plot(xx, getUniCDF(xx,vMU,vLAMBDA), 'Color','#009FE3','LineWidth',linewidth);
 
 % Generate colormap for relay stages (from light grey to black)
 lightGrey = [0.8 0.8 0.8];
@@ -58,20 +55,29 @@ stageColors = [linspace(lightGrey(1),black(1),raceN)', ...
 
 % Plot each multi-stage CDF
 for k = 1:raceN
-    plot(xx, multiCDF(:,k), 'Color', stageColors(k,:), 'LineWidth',1.5);
+    plot(xx, multiCDF(:,k), 'Color', stageColors(k,:), 'LineWidth',linewidth);
 end
 
 % Plot Race and Miller Bound
-plot(xx, getRaabCDF(xx,aMU,vMU,aLAMBDA,vLAMBDA), 'Color','r','LineWidth',1.5, 'LineStyle','--');
-plot(xx, getMillerCDF(xx,aMU,vMU,aLAMBDA,vLAMBDA), 'Color','r','LineWidth',1.5, 'LineStyle','-');
+plot(xx, getRaabCDF(xx,aMU,vMU,aLAMBDA,vLAMBDA), 'Color','r','LineWidth',linewidth, 'LineStyle','--');
+plot(xx, getMillerCDF(xx,aMU,vMU,aLAMBDA,vLAMBDA), 'Color','r','LineWidth',linewidth, 'LineStyle','-');
 
 % Overlay empirical quantiles
-scatter(empData(:,1), probLevels, 30, 'MarkerEdgeColor','#009FE3','MarkerFaceColor','w');
-scatter(empData(:,2), probLevels, 30, 'MarkerEdgeColor','#3AAA35','MarkerFaceColor','w');
-scatter(empData(:,3), probLevels, 30, 'MarkerEdgeColor','k','MarkerFaceColor','w');
+scatter(empData(:,1), probLevels, 50, 'MarkerEdgeColor','#3AAA35','MarkerFaceColor','w', 'LineWidth', linewidth);
+scatter(empData(:,2), probLevels, 50, 'MarkerEdgeColor','#009FE3','MarkerFaceColor','w', 'LineWidth', linewidth);
+scatter(empData(:,3), probLevels, 50, 'MarkerEdgeColor','k','MarkerFaceColor','w', 'LineWidth', linewidth);
 
 xlabel(ax1,'Response Time (ms)'); ylabel(ax1,'Cumulative Probability');
-axis(ax1,[100 xMax 0 1]); set(ax1,'Box','off','TickDir','out','FontSize',9,'LineWidth',1.5);
+axis(ax1,[100 xMax 0 1]); set(ax1,'Box','off','TickDir','out','FontSize',9,'LineWidth',linewidth);
+
+% Set axis ticks and other properties
+yticks(linspace(0, 1, 3))
+xticks(linspace(100, 700, 3))
+
+ax1.YColor = "k";
+ax1.XColor = "k";
+ax1.LineWidth = linewidth;
+ax1.FontSize = fontsize;
 
 %% Compute RSE, Violations, and RMSE Across Stages
 % Prepare empirical CDF at data points
@@ -82,7 +88,7 @@ rseVals     = nan(1,raceN);
 violVals    = nan(1,raceN);
 rmseVals    = nan(1,raceN);
 
-griceCDF    = getGriceCDF(uniCDF(xx,aMU,aLAMBDA), uniCDF(xx,vMU,vLAMBDA));
+griceCDF    = getGriceCDF(getUniCDF(xx,aMU,aLAMBDA), getUniCDF(xx,vMU,vLAMBDA));
 millerCDF   = getMillerCDF(xx, aMU, vMU, aLAMBDA, vLAMBDA);
 
 for k = 1:raceN
@@ -102,19 +108,37 @@ end
 
 %% Plot RSE vs. Number of Stages
 ax2 = nexttile(t); hold(ax2,'on');
-plot(1:raceN, rseVals, 'o-','Color','k','LineWidth',1.5,'MarkerFaceColor','w');
-yline(rseVals(1),'r--','LineWidth',1.5);
+plot(1:raceN, rseVals, 'o-','Color','k','LineWidth',linewidth,'MarkerFaceColor','w');
+yline(rseVals(1),'r--','LineWidth',linewidth);
 xlabel(ax2,'Stages'); ylabel(ax2,'RSE (ms)');
-set(ax2,'Box','off','TickDir','out','FontSize',9,'LineWidth',1.5);
-xlim([1 raceMax]); ylim([0 max(rseVals)*1.1]);
+set(ax2,'Box','off','TickDir','out','FontSize',fontsize,'LineWidth',linewidth);
+xlim([0 raceMax]); ylim([0 200]);
+
+% Set axis ticks and other properties
+yticks(linspace(0, 200, 5))
+xticks(linspace(0, 10, 6))
+
+ax2.YColor = "k";
+ax2.XColor = "k";
+ax2.LineWidth = linewidth;
+ax2.FontSize = fontsize;
 
 %% Plot Violations vs. Number of Stages
 ax3 = nexttile(t); hold(ax3,'on');
-plot(1:raceN, violVals, 'o-','Color','k','LineWidth',1.5,'MarkerFaceColor','w');
-yline(violVals(1),'r--','LineWidth',1.5);
+plot(1:raceN, violVals, 'o-','Color','k','LineWidth',linewidth,'MarkerFaceColor','w');
+yline(violVals(1),'r--','LineWidth',linewidth);
 xlabel(ax3,'Stages'); ylabel(ax3,'Violations (ms)');
-set(ax3,'Box','off','TickDir','out','FontSize',9,'LineWidth',1.5);
-xlim([1 raceMax]); ylim([0 max(violVals)*1.1]);
+set(ax3,'Box','off','TickDir','out','FontSize',fontsize,'LineWidth',linewidth);
+xlim([0 raceMax]); ylim([0 100]);
+
+% Set axis ticks and other properties
+yticks(linspace(0, 100, 6))
+xticks(linspace(0, 10, 6))
+
+ax3.YColor = "k";
+ax3.XColor = "k";
+ax3.LineWidth = linewidth;
+ax3.FontSize = fontsize;
 
 %% Save Figure as Vector PDF
 outDir = fullfile(pwd,'Figures'); if ~exist(outDir,'dir'), mkdir(outDir); end

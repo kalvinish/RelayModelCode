@@ -1,0 +1,213 @@
+%% Figure 2: RT-share Manipulation and Violation Effects
+% This script visualises how varying the first-stage RT-share in the relay model
+% affects predicted CDFs, RSE, and Miller bound violations.
+
+clear; clc; close all;
+
+% Add custom function directory to path
+addpath(fullfile(pwd, 'Functions'));
+
+writedata = true;
+
+%% Load Empirical Data and Fitted Parameters from Previous Analysis
+
+% Load in empirical data from digitised CDF taken from Figure 1 Miller (1982)
+empData_86 = readmatrix(fullfile(pwd, 'EmpiricalData', 'Miller86', 'miller_86_BD_full.xlsx'));
+
+soaRow = 1; % multi - row holding soa values
+meanRow = 2; % multi - row holding means
+medianRow = 3; % multi - row holding medians
+seRow = 4; % multi - row holding SE
+sdRow = 6;
+
+% Change SOA for unisensory conditions to be -Inf and Inf
+empData_86(empData_86(:,:) == -10000) = -Inf;
+empData_86(empData_86(:,:) == 10000) = Inf;
+
+%% Fitting
+
+lags = empData_86(soaRow,:);
+empN = 400;
+empMean = empData_86(meanRow,:);
+empMedian = empData_86(medianRow,:);
+empSE = empData_86(seRow,:);
+empSD = empSE .* sqrt(empN);
+
+nBoot = 100;
+simN = 100000;
+params = [300, 320, 7000, 7500, 0.2];
+
+% Parameter Bounds
+uBound = [Inf Inf Inf Inf 0.5];
+lBound = [eps eps eps eps 0];
+
+% Start Values
+[start_muA, start_lambdaA] = fitIG_fromDesc(empMean(1), empMedian(1), empSE(1), empN);
+[start_muV, start_lambdaV] = fitIG_fromDesc(empMean(end), empMedian(end), empSE(end), empN);
+
+startVals = [start_muA, start_muV, start_lambdaA, start_lambdaV, 0.25];
+
+% Objective function handle
+objFun = @(p) computeSSD(params, simN, nBoot, lags, empMean, empSD);
+
+% Choose fmincon options (e.g. display iterations, use parallel if you like)
+options = optimoptions('fmincon', ...
+    'Display','iter', ...
+    'UseParallel',true);
+
+% Run the constrained minimization
+[paramEst, fval, exitflag, output] = fmincon( ...
+    objFun, ...       % objective
+    startVals, ...    % initial guess
+    [], [], ...       % no linear inequality A*x ≤ b
+    [], [], ...       % no linear equality   Aeq*x = beq
+    lBound, ...       % lower bounds
+    uBound, ...       % upper bounds
+    [], ...           % no nonlinear constraint function
+    options );
+
+% Display results
+fprintf('\nOptimization finished (exitflag = %d)\n', exitflag);
+fprintf(' Fitted params:\n');
+fprintf('   muA    = %.3f\n', paramEst(1));
+fprintf('   muV    = %.3f\n', paramEst(2));
+fprintf('   lamA   = %.1f\n', paramEst(3));
+fprintf('   lamV   = %.1f\n', paramEst(4));
+fprintf('   w      = %.3f\n', paramEst(5));
+fprintf(' Final SSD = %.4f\n', fval);
+
+% 1) tighter fmincon options
+opts = optimoptions('fmincon', ...
+  'Display',                'iter', ...
+  'Algorithm',              'interior-point', ...
+  'MaxIterations',          5000, ...
+  'MaxFunctionEvaluations', 1e5, ...
+  'OptimalityTolerance',    1e-10, ...
+  'StepTolerance',          1e-10);
+
+problem = createOptimProblem('fmincon', ...
+    'x0',        x0, ...
+    'objective', @(p) ssdFun(p,synMean,synSD), ...
+    'lb',        lb, ...
+    'ub',        ub, ...
+    'options',   opts);
+
+% 2a) MultiStart with more random starts
+ms = MultiStart( ...
+  'UseParallel',           true, ...
+  'StartPointsToRun',      'bounds');
+
+% nStarts = 40;  % try 40 different starts
+% [estP,fval] = run(ms, problem, nStarts);
+
+% ---- or ----
+
+% 2b) Use GlobalSearch
+gs = GlobalSearch();
+[estP,fval] = run(gs, problem);
+
+%% Simulate Best Fitting Data
+
+% Number of bootstrap replicates
+nBoot = 500;  
+
+% Pre‐allocate
+predMeanBoot = nan(nBoot, numel(lags));
+predSDBoot   = nan(nBoot, numel(lags));
+
+% Bootstrap predicted summaries
+parfor b = 1:nBoot
+    [m,s] = getSummaryRelay(paramEst, lags, simN);
+    predMeanBoot(b,:) = m;
+    predSDBoot(b,:)   = s;
+end
+
+% Compute means and 95% quantile‐CIs
+mean_predMean = mean(predMeanBoot,1);
+ci_predMean   = quantile(predMeanBoot, [0.025 0.975]);
+
+mean_predSD   = mean(predSDBoot,1);
+ci_predSD     = quantile(predSDBoot,   [0.025 0.975]);
+
+%% Plot Fits
+% Convert lags to percentages if needed
+x = 1:length(lags);
+
+% Create figure
+figure('Name','Mean & SD with 95% CI','Color','w');
+
+% --- Mean subplot ---
+subplot(2,1,1);
+hold on; box off;
+
+% empirical
+plot(x, empMean, 'ko-', 'LineWidth',1.5, 'DisplayName','Empirical Mean');
+
+% predicted mean + CI (errorbars)
+errorbar( x, mean_predMean, ...
+          mean_predMean - ci_predMean(1,:), ...
+          ci_predMean(2,:) - mean_predMean, ...
+          'rs--','LineWidth',1.5,'MarkerSize',6,...
+          'DisplayName','Predicted Mean' );
+
+xlabel('RT Share (%)');
+ylabel('Mean RT (ms)');
+legend('Location','best');
+title('Mean RT: Empirical vs. Predicted');
+
+% --- SD subplot ---
+subplot(2,1,2);
+hold on; box off;
+
+plot(x, empSD, 'ko-', 'LineWidth',1.5, 'DisplayName','Empirical SD');
+
+errorbar( x, mean_predSD, ...
+          mean_predSD - ci_predSD(1,:), ...
+          ci_predSD(2,:) - mean_predSD, ...
+          'rs--','LineWidth',1.5,'MarkerSize',6,...
+          'DisplayName','Predicted SD' );
+
+xlabel('RT Share (%)');
+ylabel('SD RT (ms)');
+legend('Location','best');
+title('RT SD: Empirical vs. Predicted');
+
+%% Functions
+
+function SSD = computeSSD(params, simN, nBoot, lags, empMean, empSD)
+
+    SSD_boot = nan(nBoot,1);
+    
+    parfor rep = 1:nBoot
+        
+        [predMean, predSD] = getSummaryRelay(params, lags, simN)
+    
+        dMean = predMean - empMean;
+        dSD   = predSD   - empSD;
+    
+        SSD_boot(rep) = sum(dMean.^2 + dSD.^2);
+    end
+
+    SSD = mean(SSD_boot);
+
+end
+
+function [predMean, predSD] = getSummaryRelay(params, lags, simN)
+
+    muA  = params(1);
+    muV  = params(2);
+    lamA = params(3);
+    lamV = params(4);
+    w    = params(5);
+
+    predMean = nan(1, numel(lags));
+    predSD  = nan(1, numel(lags));
+
+    for i = 1:numel(lags)
+        rtRelay = getRelayLagRND(simN, muA, muV, lamA, lamV, ...
+                                 w, 1-w, w, 1-w, lags(i), 1);
+        predMean(i) = mean(rtRelay);
+        predSD(i)   = std(rtRelay);
+    end
+
+end

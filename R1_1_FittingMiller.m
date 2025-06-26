@@ -10,26 +10,15 @@ clear; clc; close all;
 addpath(genpath(fullfile(pwd, 'Functions')));
 
 %% Load Empirical Data
-% Data files: '1.csv', '2.csv', '3.csv' correspond to A, V, and AV.
-loadDir = fullfile(pwd, 'EmpiricalData', 'Miller82');
 numQuantiles = 10;
-empiricalData = nan(numQuantiles, 3);
-probLevels = linspace(0.05, 0.95, numQuantiles);
-loadedData = nan(numQuantiles, 2, 3);
 fitParams = nan(3, 2);  % [mu, lambda] for each condition
 
+loadedData = readmatrix(fullfile(pwd, 'EmpiricalData', 'Miller82', 'miller.xlsx'));
+empiricalData = loadedData(:,1:3);
+
 for cond = 1:3
-    % Read RT quantiles from CSV
-    filePath = fullfile(loadDir, sprintf('%d.csv', cond));
-    raw = readmatrix(filePath);
-    empiricalData(:, cond) = raw(:, 1);
-
-    % Build CDF data: [RT, probability]
-    loadedData(:,1,cond) = raw(:,1);
-    loadedData(:,2,cond) = probLevels;
-
     % Fit inverse Gaussian to unisensory quantile data
-    [mu_opt, lambda_opt] = fitIG_fromCDF(loadedData(:,:,cond));
+    [mu_opt, lambda_opt] = fitIG_fromCDF(loadedData(:,[cond, 4]));
     fitParams(cond,:) = [mu_opt, lambda_opt];
 end
 
@@ -37,6 +26,13 @@ end
 xx = linspace(100, 800, 100);  % RT range for plotting
 A_dist = makedist('InverseGaussian', 'mu', fitParams(1,1), 'lambda', fitParams(1,2));
 V_dist = makedist('InverseGaussian', 'mu', fitParams(2,1), 'lambda', fitParams(2,2));
+AV_dist = makedist('InverseGaussian', 'mu', fitParams(3,1), 'lambda', fitParams(3,2));
+
+uniA = getUniCDF(xx, fitParams(1,1), fitParams(1,2));
+uniV = getUniCDF(xx, fitParams(2,1), fitParams(2,2));
+AV_dist = getUniCDF(xx, fitParams(3,1), fitParams(3,2));
+getRSE_fromCDF(xx, AV_dist, getGriceCDF(uniA, uniV))
+getViolation_fromCDF(xx, AV_dist, getMillerCDF(xx, fitParams(1,1), fitParams(2,1), fitParams(1,2), fitParams(2,2)))
 
 % Compute unisensory CDFs
 cdf_A = cdf(A_dist, xx);
@@ -47,7 +43,8 @@ cdf_Raab   = getRaabCDF(xx, A_dist.mu, V_dist.mu, A_dist.lambda, V_dist.lambda);
 cdf_Miller = getMillerCDF(xx, A_dist.mu, V_dist.mu, A_dist.lambda, V_dist.lambda);
 
 %% Optimal Relay Model Weight (RT-share) for AV Data
-AV_data = loadedData(:,:,3);
+% AV_data = loadedData(:,:,3);
+AV_data = loadedData(:,[3 4]);
 [opt_w, fval] = getRTshare(AV_data, A_dist.mu, V_dist.mu, A_dist.lambda, V_dist.lambda);
 
 % Relay CDF with optimal weight
@@ -136,6 +133,16 @@ plot(getRaab(empiricalData(:,1:2)),  cp, '--','Color','r', 'LineWidth', 2);
 
 xlabel('Response Time (ms)'); ylabel('Cumulative Probability');
 legend({'','', 'A', 'V', 'AV', 'Miller Bound', 'Race Model'}, 'Location','Southeast','Box','off');
+
+% Set axis ticks and other properties
+yticks(linspace(0, 1, 3))
+xticks(linspace(100, 700, 3))
+
+ax1 = gca;
+ax1.TickDir = 'out'; ax1.FontSize = 11;
+ax1.YColor = "k";
+ax1.XColor = "k";
+ax1.LineWidth = 2;
 
 % Save figure
 outFile = fullfile(pwd, 'Figures', 'miller82CDF.pdf');
