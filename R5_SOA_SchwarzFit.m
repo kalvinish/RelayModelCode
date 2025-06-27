@@ -33,40 +33,51 @@ empMedian = empData_86(medianRow,:);
 empSE = empData_86(seRow,:);
 empSD = empSE .* sqrt(empN);
 
-nBoot = 10;
-simN = 400;
+%% Fitting with Bayesian Optimization
 
-% Parameter Bounds
-uBound = [Inf Inf Inf Inf 0.5 0.5];
-lBound = [eps eps eps eps 0 0];
+simN = 1000000;
 
-% Start Values
-[start_muA, start_lambdaA] = fitIG_fromDesc(empMean(1), empMedian(1), empSE(1), empN);
-[start_muV, start_lambdaV] = fitIG_fromDesc(empMean(end), empMedian(end), empSE(end), empN);
+%%— Define your threshold (e.g. we want SSD < 5) —%%
+ssdThreshold = 5;
 
-startVals = [start_muA, start_muV, start_lambdaA, start_lambdaV, 0.25, 0.2];
+% Wrap computeSSD into a function that takes a table of optimVars
+funBO = @(optVars) computeSSD(...
+    [optVars.muA,  optVars.muV,  optVars.lamA,  optVars.lamV, ...
+     optVars.w1,   optVars.w2], ...
+    simN, lags, empMean, empSD);
 
-% Objective function handle
-objFun = @(p) computeSSD(p, simN, nBoot, lags, empMean, empSD);
+% Define optimization variables and their bounds
+vars = [
+    optimizableVariable('muA',   [eps, 10000])
+    optimizableVariable('muV',   [eps, 10000])
+    optimizableVariable('lamA',  [eps, 100000])
+    optimizableVariable('lamV',  [eps, 100000])
+    optimizableVariable('w1',    [0, 0.5])
+    optimizableVariable('w2',    [0, 0.5])
+];
 
-opts = optimoptions('fmincon', ...
-  'Display',                'iter', ...
-  'Algorithm',              'interior-point', ...
-  'MaxIterations',          5000, ...
-  'MaxFunctionEvaluations', 1e5, ...
-  'OptimalityTolerance',    1e-10, ...
-  'StepTolerance',          1e-10);
+%%— Updated bayesopt call —%%
+results = bayesopt(funBO, vars, ...
+    'IsObjectiveDeterministic', false, ...
+    'UseParallel',               true, ...
+    'NumSeedPoints',            30, ...                   % more initial coverage
+    'MaxObjectiveEvaluations',  200, ...                  % more total evaluations
+    'AcquisitionFunctionName', 'expected-improvement-plus', ...
+    'OutputFcn',               {@stopIfReached}, ...      % our early-stop hook
+    'Verbose',                  1, ...
+    'PlotFcn',                 {@plotObjectiveModel, @plotAcquisitionFunction} ...
+);
 
-problem = createOptimProblem('fmincon', ...
-    'x0',        startVals, ...
-    'objective', @(p) objFun(p), ...
-    'lb',        lBound, ...
-    'ub',        uBound, ...
-    'options',   opts);
 
-% Use GlobalSearch
-gs = GlobalSearch();
-[estP,fval] = run(gs, problem);
+% Extract best parameters
+best = results.XAtMinObjective;
+estP_bo = [best.muA, best.muV, best.lamA, best.lamV, best.w1, best.w2];
+fval_bo = results.MinObjective;
+
+fprintf('\nBayesOpt best SSD = %g\n', fval_bo);
+disp('Best parameters:');
+disp(estP_bo);
+
 
 %% Simulate Best Fitting Data
 
@@ -79,7 +90,7 @@ predSDBoot   = nan(nBoot, numel(lags));
 
 % Bootstrap predicted summaries
 parfor b = 1:nBoot
-    [m,s] = getSummaryRelay(estP, lags, empN);
+    [m,s] = getSummaryRelay(estP_bo, lags, empN);
     predMeanBoot(b,:) = m;
     predSDBoot(b,:)   = s;
 end
@@ -136,20 +147,26 @@ title('RT SD: Empirical vs. Predicted');
 
 %% Functions
 
-function SSD = computeSSD(params, simN, nBoot, lags, empMean, empSD)
-    
-    parfor rep = 1:nBoot
-        
-        [pMean, pSD] = getSummaryRelay(params, lags, simN);
-        predMean(rep,:) = pMean;
-        predSD(rep,:) = pSD;
+%%— Make an OutputFcn to halt when MinObjective ≤ threshold —%%
+function stop = stopIfReached(results, state)
+    stop = false;
+    if strcmp(state, 'iteration')
+        if results.MinObjective <= 5
+            fprintf('>>> Early stopping: reached SSD = %.4f\n', results.MinObjective);
+            stop = true;
+        end
     end
+end
 
-    dMean = mean(predMean) - empMean;
-    dSD = mean(predSD) - empSD;
+function SSD = computeSSD(params, simN, lags, empMean, empSD)
+   
+    [pMean, pSD] = getSummaryRelay(params, lags, simN);
 
-    % SSD = sum([dMean.^2, dSD.^2]);
-    SSD = sum(dSD.^2);
+    dMean = pMean - empMean;
+    dSD = pSD - empSD;
+
+    % SSD = sqrt(mean([dMean.^2, dSD.^2]));
+    SSD = sqrt(mean(dMean.^2));
 
 end
 

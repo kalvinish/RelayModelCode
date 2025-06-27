@@ -7,7 +7,7 @@ clear; clc; close all;
 % Add custom function directory to path
 addpath(fullfile(pwd, 'Functions'));
 
-writedata = true;
+writedata = false;
 
 %% Load Empirical Data and Fitted Parameters from Previous Analysis
 
@@ -26,20 +26,16 @@ avLAMBDA = params_82(3,2);
 % Load in empirical data from digitised CDF taken from Figure 1 Miller (1982)
 empData_82 = readmatrix(fullfile(pwd, 'EmpiricalData', 'Miller82', 'miller_82.xlsx'));
 
-%% Get empirical RSE and RMI violations from IG distribution
+%% Make CDFs of interest
 
 xx = linspace(100, 700, 100);  % RT values for CDF evaluation
 
 a_cdf  = getUniCDF(xx, aMU, aLAMBDA);
 v_cdf  = getUniCDF(xx, vMU, vLAMBDA);
-av_cdf = getUniCDF(xx, avMU, avLAMBDA);
 
 grice_cdf = getGriceCDF(xx, aMU, vMU, aLAMBDA, vLAMBDA); % calculate Grice's Bound
 raab_cdf = getRaabCDF(xx, aMU, vMU, aLAMBDA, vLAMBDA); % calculate Raab's Race Model
 miller_cdf = getMillerCDF(xx, aMU, vMU, aLAMBDA, vLAMBDA); % calculate RMI
-
-emp.rse = getRSE_fromCDF(xx, av_cdf, grice_cdf);
-emp.violation = getViolation_fromCDF(xx, av_cdf, miller_cdf);
 
 %% Fit the RT share parameter to the empirical data
 
