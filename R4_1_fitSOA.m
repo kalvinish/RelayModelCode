@@ -60,9 +60,9 @@ switch lower(optim_mode)
             'PlotFcn','all');
         
         % Best result
-        bestW    = results.XAtMinObjective.w;
-        bestRMSE = results.MinObjective;
-        fprintf('Best w = %.4f  (RMSE ≈ %.4f)\n', bestW, bestRMSE);
+        w.opt = results.XAtMinObjective.w;
+        w.rmse = results.MinObjective;
+        fprintf('Best w = %.4f  (RMSE ≈ %.4f)\n', w.opt, w.rmse);
     
         if writedata
             outFile = fullfile(pwd, 'Figures', 'weightFit_miller86.pdf');
@@ -78,11 +78,11 @@ switch lower(optim_mode)
         [wEstimates, fvals] = optimiseRTshare(params, empData, nSamples, nRepeats);
         
         % Aggregate results
-        bestW = mean(wEstimates);
-        wStd = std(wEstimates);
-        wFvalMean = mean(fvals);
-        wFvalSD = std(fvals);
-        fprintf('Optimal weight: %.4f ± %.4f (mean ± std)\nRMSE: %.4f ± %.4f ms\n', bestW, wStd, wFvalMean, wFvalSD);
+        w.opt = mean(wEstimates);
+        w.opt_sd = std(wEstimates);
+        w.rmse = mean(fvals);
+        w.rmse_sd = std(fvals);
+        fprintf('Optimal weight: %.4f ± %.4f (mean ± std)\nRMSE: %.4f ± %.4f ms\n', w.opt, w.opt_sd, w.rmse, w.rmse_sd);
 
 end
 
@@ -90,7 +90,7 @@ end
 
 if writedata
     outFile = fullfile(pwd, 'FittedParameters', 'miller_86_weight');
-    save(outFile, 'bestW');
+    save(outFile, 'w');
 end
 
 %% Functions

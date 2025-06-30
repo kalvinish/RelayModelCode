@@ -24,7 +24,7 @@ params.vMU      = params_86(2,1);
 params.aLAMBDA  = params_86(1,2);
 params.vLAMBDA  = params_86(2,2);
 
-params.w = bestW;
+params.w = w.opt;
 
 % Load in empirical data from digitised CDF taken from Figure 1 Miller (1982)
 empData_86 = readmatrix(fullfile(pwd, 'EmpiricalData', 'Miller86', 'miller_86_BD_full.xlsx'));
@@ -42,6 +42,18 @@ empData.av_mean = empData_86(row.mean, col.soa);
 empData.rse = empData_86(row.rse, col.soa);
 empData.lags = empData_86(row.soa, col.soa);
 empData.nTrials = 400;
+
+%% Get time for component stages
+
+realA.firstStageMean = params.aMU * params.w;
+realA.firstStageSD = sqrt((realA.firstStageMean^3)/(params.aLAMBDA * params.w));
+realA.secondStageMean = params.aMU * (1-params.w);
+realA.secondStageSD = sqrt((realA.secondStageMean^3)/(params.aLAMBDA * (1-params.w)));
+
+realV.firstStageMean = params.vMU * params.w;
+realV.firstStageSD = sqrt((realV.firstStageMean^3)/(params.vLAMBDA * params.w));
+realV.secondStageMean = params.vMU * (1-params.w);
+realV.secondStageSD = sqrt((realV.secondStageMean^3)/(params.vLAMBDA * (1-params.w)));
 
 %% 4. SIMULATE SOA EXPERIMENT
 % Monte Carlo simulation over fine SOA grid

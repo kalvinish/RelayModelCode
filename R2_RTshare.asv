@@ -41,17 +41,18 @@ miller_cdf = getMillerCDF(xx, aMU, vMU, aLAMBDA, vLAMBDA); % calculate RMI
 
 [opt_w, rmse.rtshare] = getRTshare(empData_82(:,[3,4]), aMU, vMU, aLAMBDA, vLAMBDA);
 
+
 %% Get time for component stages
 
 realA.firstStageMean = aMU * opt_w;
 realA.firstStageSD = sqrt((realA.firstStageMean^3)/(aLAMBDA * opt_w));
 realA.secondStageMean = aMU * (1-opt_w);
-realA.secondStageSD = sqrt((realA.secondStageMean^3)/(aLAMBDA * (1-opt_w)));
+realA.secondStageSD = sqrt((realA.secondStageMean^3)/(aLAMBDA * (1-W.optimal_w)));
 
-realV.firstStageMean = vMU * opt_w;
-realV.firstStageSD = sqrt((realV.firstStageMean^3)/(vLAMBDA * opt_w));
-realV.secondStageMean = vMU * (1-opt_w);
-realV.secondStageSD = sqrt((realV.secondStageMean^3)/(vLAMBDA * (1-opt_w)));
+realV.firstStageMean = V.mu * W.optimal_w;
+realV.firstStageSD = sqrt((realV.firstStageMean^3)/(V.lambda * W.optimal_w));
+realV.secondStageMean = V.mu * (1-W.optimal_w);
+realV.secondStageSD = sqrt((realV.secondStageMean^3)/(V.lambda * (1-W.optimal_w)));
 
 %% Data for Figure 1 b,c,d
 
