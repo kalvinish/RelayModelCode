@@ -4,6 +4,8 @@ Empirical data used for fitting can be found in the EmpiricalData folder.
 
 Numbered scripts should be ran in order for any updates (as some scripts rely on fitted parameters from preceding ones). All functions used can be found in the Functions folder.
 
+[![DOI](https://zenodo.org/badge/1007164840.svg)](https://doi.org/10.5281/zenodo.15830791)
+
 MIT License
 
 Copyright (c) 2025 Kalvin Roberts
